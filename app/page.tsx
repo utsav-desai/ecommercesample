@@ -5,16 +5,20 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 type Product = { id: number; name: string; category: string; price: number; note: string; image: string; tone: string; tag?: string };
 type CartItem = Product & { quantity: number };
 
+declare global {
+  interface Window { Razorpay?: new (options: Record<string, unknown>) => { open: () => void }; }
+}
+
 const products: Product[] = [
-  { id: 1, name: "Solace Throw", category: "Home", price: 88, note: "Merino blend · Oat", tag: "Bestseller", tone: "cream", image: "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=900&q=85" },
-  { id: 2, name: "Dawn Vessel", category: "Home", price: 42, note: "Hand-thrown stoneware", tone: "rose", image: "https://images.unsplash.com/photo-1610701596007-11502861dcfa?auto=format&fit=crop&w=900&q=85" },
-  { id: 3, name: "Everyday Tote", category: "Carry", price: 68, note: "Washed canvas · Clay", tag: "New", tone: "sand", image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=85" },
-  { id: 4, name: "Morrow Journal", category: "Desk", price: 24, note: "Italian paper · 192 pages", tone: "blue", image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=85" },
-  { id: 5, name: "Common Ground Mug", category: "Home", price: 28, note: "Speckled porcelain", tone: "clay", image: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=900&q=85" },
-  { id: 6, name: "Field Notes Set", category: "Desk", price: 18, note: "Set of three · Recycled", tone: "green", image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=85" },
+  { id: 1, name: "Solace Throw", category: "Home", price: 4880, note: "Merino blend · Oat", tag: "Bestseller", tone: "cream", image: "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=900&q=85" },
+  { id: 2, name: "Dawn Vessel", category: "Home", price: 2490, note: "Hand-thrown stoneware", tone: "rose", image: "https://images.unsplash.com/photo-1610701596007-11502861dcfa?auto=format&fit=crop&w=900&q=85" },
+  { id: 3, name: "Everyday Tote", category: "Carry", price: 3290, note: "Washed canvas · Clay", tag: "New", tone: "sand", image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=85" },
+  { id: 4, name: "Morrow Journal", category: "Desk", price: 1190, note: "Italian paper · 192 pages", tone: "blue", image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=85" },
+  { id: 5, name: "Common Ground Mug", category: "Home", price: 1490, note: "Speckled porcelain", tone: "clay", image: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=900&q=85" },
+  { id: 6, name: "Field Notes Set", category: "Desk", price: 790, note: "Set of three · Recycled", tone: "green", image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=85" },
 ];
 
-const money = (number: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(number);
+const money = (number: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(number);
 
 export default function Storefront() {
   const [page, setPage] = useState("home");
@@ -46,10 +50,19 @@ export default function Storefront() {
   }
   function updateQuantity(id: number, delta: number) { setCart((items) => items.flatMap((item) => item.id === id ? (item.quantity + delta > 0 ? [{ ...item, quantity: item.quantity + delta }] : []) : [item])); }
   async function startCheckout() {
-    const response = await fetch("/api/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: cart }) });
+    const response = await fetch("/api/create-razorpay-order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: cart }) });
     const data = await response.json();
-    if (data.mode === "stripe" && data.url) window.location.href = data.url;
-    else { setCartOpen(false); setCheckout(true); }
+    if (data.mode !== "razorpay") { setCartOpen(false); setCheckout(true); return; }
+    if (!window.Razorpay) {
+      const script = document.createElement("script"); script.src = "https://checkout.razorpay.com/v1/checkout.js"; script.async = true;
+      await new Promise<void>((resolve, reject) => { script.onload = () => resolve(); script.onerror = () => reject(new Error("Could not load Razorpay")); document.body.appendChild(script); });
+    }
+    const razorpay = new window.Razorpay!({ key: data.keyId, amount: data.amount, currency: data.currency, name: "Juniper Market", description: "Thoughtful everyday goods", order_id: data.orderId, theme: { color: "#364535" }, handler: async (payment: Record<string, string>) => {
+      const verification = await fetch("/api/verify-razorpay-payment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payment) });
+      if (verification.ok) { setCart([]); setOrderComplete(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
+      else setNotice("We couldn’t verify that payment. Please try again.");
+    }});
+    razorpay.open();
   }
   function submitDemoPayment(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setOrderComplete(true); setCheckout(false); setCart([]); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
@@ -89,9 +102,9 @@ export default function Storefront() {
 
     <footer><div className="footer-main"><div><button className="wordmark" onClick={() => setPage("home")}>JUNIPER<span>MARKET</span></button><p>Useful things, beautifully made.</p></div><div><b>Explore</b><button onClick={() => setPage("shop")}>Shop</button><button onClick={() => setPage("about")}>Our story</button><button onClick={() => setPage("contact")}>Contact</button></div><div><b>Customer care</b><button onClick={() => setAuthOpen("login")}>Your account</button><button onClick={() => setCartOpen(true)}>Shipping & returns</button><button onClick={() => setCartOpen(true)}>Payment & security</button></div><div className="footer-social"><b>Follow along</b><a href="#">Instagram ↗</a><a href="#">Pinterest ↗</a></div></div><div className="footer-bottom"><span>© 2025 Juniper Market</span><span>Privacy&nbsp;&nbsp; Terms&nbsp;&nbsp; Accessibility</span><span>Made with intention</span></div></footer>
 
-    {cartOpen && <aside className="cart-drawer" aria-label="Shopping bag"><div className="drawer-overlay" onClick={() => setCartOpen(false)} /><div className="drawer"><div className="drawer-head"><h2>Your bag <small>({cartCount})</small></h2><button onClick={() => setCartOpen(false)}>×</button></div>{cart.length === 0 ? <div className="empty-bag"><span>✦</span><h3>Your bag is waiting.</h3><p>Bring home something considered.</p><button className="primary-button" onClick={() => { setCartOpen(false); setPage("shop"); }}>Explore the shop</button></div> : <><div className="cart-items">{cart.map((item) => <div className="cart-item" key={item.id}><img src={item.image} alt="" /><div><b>{item.name}</b><small>{item.note}</small><span>{money(item.price)}</span><div className="quantity"><button onClick={() => updateQuantity(item.id, -1)}>−</button><em>{item.quantity}</em><button onClick={() => updateQuantity(item.id, 1)}>+</button></div></div><button className="remove" onClick={() => updateQuantity(item.id, -item.quantity)}>×</button></div>)}</div><div className="cart-footer"><p><span>Subtotal</span><b>{money(subtotal)}</b></p><small>Shipping and taxes calculated at checkout.</small><button className="primary-button full" onClick={startCheckout}>Secure checkout <span>→</span></button><div className="payment-icons">⌁ Visa&nbsp;&nbsp; Mastercard&nbsp;&nbsp; Amex&nbsp;&nbsp; Stripe</div></div></>}</div></aside>}
+    {cartOpen && <aside className="cart-drawer" aria-label="Shopping bag"><div className="drawer-overlay" onClick={() => setCartOpen(false)} /><div className="drawer"><div className="drawer-head"><h2>Your bag <small>({cartCount})</small></h2><button onClick={() => setCartOpen(false)}>×</button></div>{cart.length === 0 ? <div className="empty-bag"><span>✦</span><h3>Your bag is waiting.</h3><p>Bring home something considered.</p><button className="primary-button" onClick={() => { setCartOpen(false); setPage("shop"); }}>Explore the shop</button></div> : <><div className="cart-items">{cart.map((item) => <div className="cart-item" key={item.id}><img src={item.image} alt="" /><div><b>{item.name}</b><small>{item.note}</small><span>{money(item.price)}</span><div className="quantity"><button onClick={() => updateQuantity(item.id, -1)}>−</button><em>{item.quantity}</em><button onClick={() => updateQuantity(item.id, 1)}>+</button></div></div><button className="remove" onClick={() => updateQuantity(item.id, -item.quantity)}>×</button></div>)}</div><div className="cart-footer"><p><span>Subtotal</span><b>{money(subtotal)}</b></p><small>Shipping and taxes calculated at checkout.</small><button className="primary-button full" onClick={startCheckout}>Secure checkout <span>→</span></button><div className="payment-icons">UPI&nbsp;&nbsp; Cards&nbsp;&nbsp; Netbanking&nbsp;&nbsp; Razorpay</div></div></>}</div></aside>}
 
-    {checkout && <div className="modal-layer"><div className="checkout-modal"><button className="modal-close" onClick={() => setCheckout(false)}>×</button><p className="eyebrow">Secure checkout</p><h2>Your order, almost home.</h2><div className="checkout-total"><span>Total due today</span><b>{money(subtotal)}</b></div><form onSubmit={submitDemoPayment}><label>Card number<input required inputMode="numeric" placeholder="4242 4242 4242 4242" minLength={12} /></label><div className="input-row"><label>Expiry<input required placeholder="MM / YY" /></label><label>CVC<input required placeholder="123" inputMode="numeric" /></label></div><label>Email for your receipt<input required type="email" placeholder="you@example.com" /></label><button className="primary-button full">Pay {money(subtotal)} <span>→</span></button></form><p className="demo-note">Demo payment mode. Add <code>STRIPE_SECRET_KEY</code> to use Stripe&apos;s hosted test checkout.</p></div></div>}
+    {checkout && <div className="modal-layer"><div className="checkout-modal"><button className="modal-close" onClick={() => setCheckout(false)}>×</button><p className="eyebrow">Secure checkout</p><h2>Your order, almost home.</h2><div className="checkout-total"><span>Total due today</span><b>{money(subtotal)}</b></div><form onSubmit={submitDemoPayment}><label>UPI ID or card number<input required placeholder="name@bank or 4111 1111 1111 1111" minLength={8} /></label><div className="input-row"><label>Expiry<input required placeholder="MM / YY" /></label><label>CVC<input required placeholder="123" inputMode="numeric" /></label></div><label>Email for your receipt<input required type="email" placeholder="you@example.com" /></label><button className="primary-button full">Pay {money(subtotal)} <span>→</span></button></form><p className="demo-note">Demo payment mode. Add <code>RAZORPAY_KEY_ID</code> and <code>RAZORPAY_KEY_SECRET</code> to open Razorpay test checkout with UPI, cards, and netbanking.</p></div></div>}
     {authOpen && <div className="modal-layer"><div className="auth-modal"><button className="modal-close" onClick={() => setAuthOpen(null)}>×</button><p className="eyebrow">Welcome to Juniper</p><h2>{authOpen === "login" ? "Good to see you." : "Make yourself at home."}</h2><form onSubmit={(event) => { event.preventDefault(); setAuthOpen(null); setNotice(authOpen === "login" ? "Welcome back." : "Your account is ready."); }}><label>Email address<input type="email" required placeholder="you@example.com" /></label><label>Password<input type="password" required placeholder="••••••••" /></label>{authOpen === "signup" && <label className="check-label"><input type="checkbox" /> Send me thoughtful updates.</label>}<button className="primary-button full">{authOpen === "login" ? "Sign in" : "Create account"} <span>→</span></button></form><p>{authOpen === "login" ? <>New here? <button onClick={() => setAuthOpen("signup")}>Create an account</button></> : <>Already have an account? <button onClick={() => setAuthOpen("login")}>Sign in</button></>}</p></div></div>}
   </main>;
 }
