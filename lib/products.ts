@@ -1,0 +1,122 @@
+export type Product = {
+  id: string;
+  name: string;
+  category: "Home" | "Carry" | "Desk";
+  categoryDetail: string;
+  price: number;
+  note: string;
+  description: string;
+  image: string;
+  tone: "cream" | "rose" | "sand" | "blue" | "clay" | "green";
+  tag?: string;
+};
+
+export type CartItem = Product & {
+  quantity: number;
+};
+
+export type Order = {
+  id: string;
+  date: string;
+  total: number;
+  items: number;
+  status: "Confirmed" | "Preparing" | "On its way";
+};
+
+export const FREE_SHIPPING_THRESHOLD = 3000;
+
+export const PRODUCTS: Product[] = [
+  {
+    id: "1",
+    name: "Solace Throw",
+    category: "Home",
+    categoryDetail: "Home / Textiles",
+    price: 4880,
+    note: "Merino blend · Oat",
+    description:
+      "A soft, substantial throw for slow mornings and long evenings. Woven from a warm merino blend with a gentle, tactile finish.",
+    tag: "Bestseller",
+    tone: "cream",
+    image:
+      "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=1400&q=85",
+  },
+  {
+    id: "2",
+    name: "Dawn Vessel",
+    category: "Home",
+    categoryDetail: "Home / Ceramics",
+    price: 2490,
+    note: "Hand-thrown stoneware",
+    description:
+      "A quietly sculptural vessel made by hand in small batches. It is just as lovely holding branches as it is standing on its own.",
+    tone: "rose",
+    image:
+      "https://images.unsplash.com/photo-1610701596007-11502861dcfa?auto=format&fit=crop&w=1400&q=85",
+  },
+  {
+    id: "3",
+    name: "Everyday Tote",
+    category: "Carry",
+    categoryDetail: "Carry / Bags",
+    price: 3290,
+    note: "Washed canvas · Clay",
+    description:
+      "A generous, hardworking tote in washed cotton canvas. Built for market trips, weekday commutes, and everything in between.",
+    tag: "New",
+    tone: "sand",
+    image:
+      "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=1400&q=85",
+  },
+  {
+    id: "4",
+    name: "Morrow Journal",
+    category: "Desk",
+    categoryDetail: "Desk / Paper",
+    price: 1190,
+    note: "Italian paper · 192 pages",
+    description:
+      "A clear place to begin. Bound in cloth and filled with smooth Italian paper that welcomes every kind of thought.",
+    tone: "blue",
+    image:
+      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=1400&q=85",
+  },
+  {
+    id: "5",
+    name: "Common Ground Mug",
+    category: "Home",
+    categoryDetail: "Home / Ceramics",
+    price: 1490,
+    note: "Speckled porcelain",
+    description:
+      "A familiar shape, made a little more special. Each porcelain mug is gently speckled and finished with a soft satin glaze.",
+    tone: "clay",
+    image:
+      "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=1400&q=85",
+  },
+  {
+    id: "6",
+    name: "Field Notes Set",
+    category: "Desk",
+    categoryDetail: "Desk / Paper",
+    price: 790,
+    note: "Set of three · Recycled",
+    description:
+      "Three pocket-sized notebooks for lists, sketches, and passing observations. Printed on recycled stock with a tactile uncoated cover.",
+    tone: "green",
+    image:
+      "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=1400&q=85",
+  },
+];
+
+export function getProductById(id: string | number): Product | undefined {
+  const normalizedId = String(id);
+  return PRODUCTS.find((p) => p.id === normalizedId);
+}
+
+export function formatMoney(amount: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
