@@ -1,18 +1,28 @@
 export type Product = {
   id: string;
   name: string;
-  category: "Home" | "Carry" | "Desk";
+  category: "Home" | "Carry" | "Desk" | string;
   categoryDetail: string;
   price: number;
   note: string;
   description: string;
   image: string;
-  tone: "cream" | "rose" | "sand" | "blue" | "clay" | "green";
+  tone: "cream" | "rose" | "sand" | "blue" | "clay" | "green" | string;
   tag?: string;
+  stock?: number;
+  status?: "active" | "draft";
 };
 
 export type CartItem = Product & {
   quantity: number;
+};
+
+export type OrderLineItem = {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
 };
 
 export type Order = {
@@ -20,7 +30,33 @@ export type Order = {
   date: string;
   total: number;
   items: number;
-  status: "Confirmed" | "Preparing" | "On its way";
+  status: "Confirmed" | "Preparing" | "On its way" | "Delivered" | "Cancelled";
+  customerEmail?: string;
+  customerName?: string;
+  paymentMode?: string;
+  lineItems?: OrderLineItem[];
+};
+
+export type StoreSettings = {
+  storeName: string;
+  announcement: string;
+  showAnnouncement: boolean;
+  freeShippingThreshold: number;
+  email: string;
+  studioAddress: string;
+  hours: string;
+  sellerPin?: string;
+};
+
+export const DEFAULT_STORE_SETTINGS: StoreSettings = {
+  storeName: "Juniper Market",
+  announcement: "Complimentary shipping on orders over ₹3,000 · Made thoughtfully, sent lightly.",
+  showAnnouncement: true,
+  freeShippingThreshold: 3000,
+  email: "hello@junipermarket.co",
+  studioAddress: "84 Meadow Lane, Brooklyn, NY",
+  hours: "Mon–Fri, 9am–5pm EST",
+  sellerPin: "1234",
 };
 
 export const FREE_SHIPPING_THRESHOLD = 3000;
@@ -37,6 +73,8 @@ export const PRODUCTS: Product[] = [
       "A soft, substantial throw for slow mornings and long evenings. Woven from a warm merino blend with a gentle, tactile finish.",
     tag: "Bestseller",
     tone: "cream",
+    stock: 18,
+    status: "active",
     image:
       "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=1400&q=85",
   },
@@ -50,6 +88,8 @@ export const PRODUCTS: Product[] = [
     description:
       "A quietly sculptural vessel made by hand in small batches. It is just as lovely holding branches as it is standing on its own.",
     tone: "rose",
+    stock: 8,
+    status: "active",
     image:
       "https://images.unsplash.com/photo-1610701596007-11502861dcfa?auto=format&fit=crop&w=1400&q=85",
   },
@@ -64,6 +104,8 @@ export const PRODUCTS: Product[] = [
       "A generous, hardworking tote in washed cotton canvas. Built for market trips, weekday commutes, and everything in between.",
     tag: "New",
     tone: "sand",
+    stock: 24,
+    status: "active",
     image:
       "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=1400&q=85",
   },
@@ -77,6 +119,8 @@ export const PRODUCTS: Product[] = [
     description:
       "A clear place to begin. Bound in cloth and filled with smooth Italian paper that welcomes every kind of thought.",
     tone: "blue",
+    stock: 32,
+    status: "active",
     image:
       "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=1400&q=85",
   },
@@ -90,6 +134,8 @@ export const PRODUCTS: Product[] = [
     description:
       "A familiar shape, made a little more special. Each porcelain mug is gently speckled and finished with a soft satin glaze.",
     tone: "clay",
+    stock: 4,
+    status: "active",
     image:
       "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=1400&q=85",
   },
@@ -103,6 +149,8 @@ export const PRODUCTS: Product[] = [
     description:
       "Three pocket-sized notebooks for lists, sketches, and passing observations. Printed on recycled stock with a tactile uncoated cover.",
     tone: "green",
+    stock: 15,
+    status: "active",
     image:
       "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=1400&q=85",
   },

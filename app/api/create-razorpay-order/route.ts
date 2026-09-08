@@ -1,6 +1,7 @@
 import Razorpay from "razorpay";
 import { NextResponse } from "next/server";
 import { getProductById, Product } from "@/lib/products";
+import { getStoredProductById } from "@/lib/store-data";
 
 type RequestItem = { id: string | number; quantity: number };
 
@@ -13,11 +14,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Your bag is empty." }, { status: 400 });
     }
 
-    // Verify each item against the trusted catalog
+    // Verify each item against the dynamic catalog
     const verifiedItems: Array<{ product: Product; quantity: number }> = [];
 
     for (const item of items) {
-      const product = getProductById(item.id);
+      const product = (await getStoredProductById(item.id)) || getProductById(item.id);
       if (!product) {
         return NextResponse.json(
           { error: `Invalid product in bag (ID: ${item.id}).` },

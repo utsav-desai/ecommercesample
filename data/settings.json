@@ -1,0 +1,10 @@
+{
+  "storeName": "Juniper Market",
+  "announcement": "Complimentary shipping on orders over ₹3,000 · Made thoughtfully, sent lightly.",
+  "showAnnouncement": true,
+  "freeShippingThreshold": 3000,
+  "email": "hello@junipermarket.co",
+  "studioAddress": "84 Meadow Lane, Brooklyn, NY",
+  "hours": "Mon–Fri, 9am–5pm EST",
+  "sellerPin": "1234"
+}

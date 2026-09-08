@@ -4,12 +4,16 @@ A sample India-first e-commerce storefront built with Next.js, TypeScript, and R
 
 ## Included
 
+- **Dedicated Seller & Store Owner Portal (`/seller`)**:
+  - Secure PIN protection (default PIN: `1234`) with instant unlock
+  - **Overview & Analytics**: Total revenue, pending order count, active products count, low stock warnings, and recent order stream
+  - **Catalog & Inventory Management**: Add new products (with custom or curated image presets), edit pricing, inline stock adjustment (`+`/`−`), filter by stock status (In stock, Low stock, Sold out), and delete items
+  - **Order Fulfillment Pipeline**: View customer orders, inspect line items & receipts, advance fulfillment status (`Confirmed` → `Preparing` → `On its way` → `Delivered`), or simulate test orders
+  - **Store Branding & Settings**: Customize store name, announcement banner, free shipping threshold, studio details, and security PIN
 - Responsive home, shop, product-detail, about, and contact experiences
-- Product search and category filtering
+- Dynamic product search, category filtering, and real-time inventory reflection (sold-out badges)
 - Indian-rupee product prices and locally persisted shopping cart
-- Login and sign-up UI
-- Contact and newsletter forms with validation
-- Razorpay payment flow for UPI, Indian cards, and netbanking
+- Razorpay payment flow for UPI, Indian cards, and netbanking with dynamic product catalog verification
 
 ## Run locally
 

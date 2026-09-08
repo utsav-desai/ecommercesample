@@ -6,6 +6,8 @@ import {
   Product,
   CartItem,
   Order,
+  StoreSettings,
+  DEFAULT_STORE_SETTINGS,
   PRODUCTS,
   getProductById,
   formatMoney,
@@ -16,10 +18,11 @@ declare global {
   interface Window { Razorpay?: new (options: Record<string, unknown>) => { open: () => void }; }
 }
 
-const products = PRODUCTS;
 const money = formatMoney;
 
 export default function Storefront() {
+  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [settings, setSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
   const [page, setPage] = useState("home");
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
@@ -32,6 +35,29 @@ export default function Storefront() {
   const [account, setAccount] = useState<string | null>(null);
   const [checkoutAfterAuth, setCheckoutAfterAuth] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+
+  // Load dynamic data from seller store
+  useEffect(() => {
+    async function loadStoreData() {
+      try {
+        const [prodRes, setRes, ordRes] = await Promise.all([
+          fetch("/api/seller/products"),
+          fetch("/api/seller/settings"),
+          fetch("/api/seller/orders"),
+        ]);
+        const prodData = await prodRes.json();
+        const setData = await setRes.json();
+        const ordData = await ordRes.json();
+
+        if (prodData.products) setProducts(prodData.products);
+        if (setData.settings) setSettings(setData.settings);
+        if (ordData.orders && ordData.orders.length > 0) setOrders(ordData.orders);
+      } catch (err) {
+        console.error("Failed to load store data:", err);
+      }
+    }
+    void loadStoreData();
+  }, []);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("juniper-cart");
@@ -108,12 +134,21 @@ export default function Storefront() {
   }, [account, checkoutAfterAuth]);
 
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  const availableCategories = useMemo(
+    () => ["All", ...Array.from(new Set(products.map((p) => p.category)))],
+    [products]
+  );
   const filtered = useMemo(() => products.filter((product) =>
     (activeCategory === "All" || product.category === activeCategory) &&
-    `${product.name} ${product.category}`.toLowerCase().includes(search.toLowerCase())), [activeCategory, search]);
+    `${product.name} ${product.category}`.toLowerCase().includes(search.toLowerCase())), [activeCategory, search, products]);
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
   function addToCart(product: Product) {
+    if (product.stock !== undefined && product.stock <= 0) {
+      setNotice(`${product.name} is currently sold out.`);
+      setTimeout(() => setNotice(""), 2200);
+      return;
+    }
     setCart((items) => {
       const existing = items.find((item) => String(item.id) === String(product.id));
       return existing
@@ -140,14 +175,35 @@ export default function Storefront() {
     );
   }
 
-  function completeOrder() {
+  async function completeOrder() {
     const order: Order = {
       id: `JM-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
       date: new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date()),
       total: subtotal,
       items: cartCount,
       status: "Confirmed",
+      customerEmail: account || "guest@example.com",
+      customerName: account ? account.split("@")[0] : "Customer",
+      paymentMode: "Razorpay Standard Checkout",
+      lineItems: cart.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+      })),
     };
+
+    try {
+      await fetch("/api/seller/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", order }),
+      });
+    } catch (e) {
+      console.error("Failed to sync order with seller portal:", e);
+    }
+
     setOrders((existing) => [order, ...existing]);
     setCart([]);
     setOrderComplete(true);
@@ -232,9 +288,22 @@ export default function Storefront() {
 
   return (
     <main>
-      <div className="announcement">Complimentary shipping on orders over ₹3,000 <span>·</span> Made thoughtfully, sent lightly.</div>
+      {settings.showAnnouncement && settings.announcement && (
+        <div className="announcement">{settings.announcement}</div>
+      )}
       <header className="site-header">
-        <button className="wordmark" onClick={() => setPage("home")} aria-label="Juniper Market home">JUNIPER<span>MARKET</span></button>
+        <button className="wordmark" onClick={() => setPage("home")} aria-label="Store home">
+          {settings.storeName ? (
+            <>
+              {settings.storeName.toUpperCase()}
+              <span>MARKET</span>
+            </>
+          ) : (
+            <>
+              JUNIPER<span>MARKET</span>
+            </>
+          )}
+        </button>
         <nav aria-label="Main navigation">
           {["home", "shop", "about", "contact"].map((item) => (
             <button className={page === item ? "nav-active" : ""} onClick={() => { setPage(item); window.scrollTo({ top: 0, behavior: "smooth" }); }} key={item}>
@@ -245,6 +314,7 @@ export default function Storefront() {
         <div className="header-actions">
           <button className="icon-button search-trigger" onClick={() => { setPage("shop"); setTimeout(() => document.getElementById("product-search")?.focus(), 50); }} aria-label="Search">⌕</button>
           <button className="account-button" onClick={() => account ? setPage("tracking") : setAuthOpen("login")}>{account ? "Orders" : "Account"}</button>
+          <Link href="/seller" className="account-button" style={{ border: "1px solid var(--line)", padding: "5px 9px", textDecoration: "none", fontSize: "11px", fontFamily: "var(--mono)", letterSpacing: "0.05em" }} title="Store Owner Dashboard">Seller ↗</Link>
           <button className="bag-button" onClick={() => setCartOpen(true)} aria-label="Open shopping bag">Bag <em>{cartCount}</em></button>
         </div>
       </header>
@@ -332,7 +402,7 @@ export default function Storefront() {
           </div>
           <div className="catalogue-tools">
             <div className="categories">
-              {["All", "Home", "Carry", "Desk"].map((category) => (
+              {availableCategories.map((category) => (
                 <button
                   className={activeCategory === category ? "selected" : ""}
                   onClick={() => setActiveCategory(category)}
@@ -489,7 +559,18 @@ export default function Storefront() {
       <footer>
         <div className="footer-main">
           <div>
-            <button className="wordmark" onClick={() => setPage("home")}>JUNIPER<span>MARKET</span></button>
+            <button className="wordmark" onClick={() => setPage("home")}>
+              {settings.storeName ? (
+                <>
+                  {settings.storeName.toUpperCase()}
+                  <span>MARKET</span>
+                </>
+              ) : (
+                <>
+                  JUNIPER<span>MARKET</span>
+                </>
+              )}
+            </button>
             <p>Useful things, beautifully made.</p>
           </div>
           <div>
@@ -504,14 +585,15 @@ export default function Storefront() {
             <button onClick={() => setPage("tracking")}>Order tracking</button>
             <button onClick={() => setCartOpen(true)}>Payment & security</button>
           </div>
-          <div className="footer-social">
-            <b>Follow along</b>
-            <a href="#">Instagram ↗</a>
-            <a href="#">Pinterest ↗</a>
+          <div>
+            <b>Shop Owner</b>
+            <Link href="/seller" style={{ textDecoration: "none", color: "#e8e9df", fontSize: "12px", display: "block", marginBottom: "8px" }}>Seller Portal ↗</Link>
+            <Link href="/seller" style={{ textDecoration: "none", color: "#e8e9df", fontSize: "12px", display: "block", marginBottom: "8px" }}>Catalog & Stock</Link>
+            <Link href="/seller" style={{ textDecoration: "none", color: "#e8e9df", fontSize: "12px", display: "block" }}>Order Fulfillment</Link>
           </div>
         </div>
         <div className="footer-bottom">
-          <span>© 2025 Juniper Market</span>
+          <span>© {new Date().getFullYear()} {settings.storeName || "Juniper Market"}</span>
           <span>Privacy&nbsp;&nbsp; Terms&nbsp;&nbsp; Accessibility</span>
           <span>Made with intention</span>
         </div>
@@ -626,16 +708,19 @@ function ProductCard({
   updateQuantity: (id: string | number, delta: number) => void;
 }) {
   const [celebrate, setCelebrate] = useState(false);
+  const isSoldOut = product.stock !== undefined && product.stock <= 0;
+
   function add(e?: React.MouseEvent) {
     e?.preventDefault();
     e?.stopPropagation();
+    if (isSoldOut) return;
     addToCart(product);
     setCelebrate(true);
     window.setTimeout(() => setCelebrate(false), 850);
   }
   return (
     <article className="product-card">
-      <div className={`product-image ${product.tone}`}>
+      <div className={`product-image ${product.tone || "sand"}`}>
         <Link
           href={`/product/${product.id}`}
           className="product-image-link"
@@ -643,8 +728,28 @@ function ProductCard({
         >
           <img src={product.image} alt={product.name} />
         </Link>
-        {product.tag && <span className="product-tag">{product.tag}</span>}
-        {quantity === 0 ? (
+        {isSoldOut ? (
+          <span className="product-tag" style={{ background: "#fbebe7", color: "#973623" }}>
+            Sold out
+          </span>
+        ) : (
+          product.tag && <span className="product-tag">{product.tag}</span>
+        )}
+        {isSoldOut ? (
+          <span
+            className="quick-add"
+            style={{
+              transform: "none",
+              opacity: 0.95,
+              textAlign: "center",
+              background: "#f7f1e9",
+              color: "#8a8f83",
+              cursor: "not-allowed",
+            }}
+          >
+            Sold out
+          </span>
+        ) : quantity === 0 ? (
           <button className="quick-add" onClick={add} type="button">
             Add to bag <span>+</span>
           </button>
